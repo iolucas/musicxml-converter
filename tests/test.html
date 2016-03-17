@@ -20,7 +20,7 @@
         <input type="file" id="files"/><br><br><br>
         <div id="resultXml">Result XML</div>
         <div id="resultJson">Result JSON</div>
-        <script src="../musicXMLToJson.js"></script>
+        <script src="../releases/musicxml-converter.js"></script>
         <script>
         
             document.getElementById("files").addEventListener("change", function(evt) {
@@ -28,7 +28,7 @@
                 
                 ReadFile(file, function(fileContent){
                     document.getElementById("resultXml").innerText = fileContent; 
-                    var mJson = musicXMLToJson(fileContent);
+                    var mJson = MusicXmlConverter.toJson(fileContent);
                     console.log(mJson);
                     document.getElementById("resultJson").innerText = JSON.stringify(mJson, null, "_"); 
                     

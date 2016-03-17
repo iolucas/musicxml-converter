@@ -1,6 +1,9 @@
 "use strict";
 
-function musicXMLToJson(xmlFile) {
+var MusicXmlConverter = {}
+
+MusicXmlConverter.toJson = function (xmlFile) {
+    
     var xmlDOM;
     if(typeof xmlFile == 'string')
         xmlDOM = parseXmlDom(xmlFile);
@@ -17,128 +20,172 @@ function musicXMLToJson(xmlFile) {
     }
 
     throw "Parse Error: Invalid MusicXML File.";
+
 }
 
-//Function to parse XML strings to xml dom
-function parseXmlDom(xmlString) {
-    var xmlDom = null;
-    if (window.DOMParser) {
+function getNodeAttributes(targetNode) {
+    if(targetNode.attributes == undefined)
+        return {};
 
-        try { 
-            xmlDom = (new DOMParser()).parseFromString(xmlString, "text/xml"); 
-        } catch (e) { xmlDom = null; }
+    if(targetNode.attributes.length == 0)
+        return {};
 
-    } else if (window.ActiveXObject) {
+    var nodeAttributtes = {}
 
-        try {
-            xmlDom = new ActiveXObject('Microsoft.XMLDOM');
-            xmlDom.async = false;
-            if (!xmlDom.loadXML(xmlString)) // parse error ..
-                window.alert(xmlDom.parseError.reason + xmlDom.parseError.srcText);
-        } catch (e) { xmlDom = null; }
+    for(var i = 0; i < targetNode.attributes.length; i++) {
+        var currAttr = targetNode.attributes[i];
 
-    } else
-        console.error("Cannot parse xml string!");
-
-    return xmlDom;
-}
-
-
-function parseScorePartwise(scorePartwise) {
-
-    var newPartwise = { parts: [] };
-
-    //Iterate thru scorePartwise childs
-    for(var i = 0; i < scorePartwise.children.length; i++) {
-        var currChild = scorePartwise.children[i];
-        
-        switch(currChild.nodeName) {
-
-            case "movement-title":
-                //If the title has already been set, put the setted as subtitle
-                if(newPartwise.title != undefined)
-                    newPartwise.subtitle = newPartwise.textContent; 
-                
-                newPartwise.title = currChild.textContent;
-                break;
-
-            case "work":
-                //iterate thru the work children
-                for(var j = 0; j < currChild.children.length; j++) {
-                    var workChild = currChild.children[j];
-
-                    switch(workChild.nodeName) {
-                        case "work-title":
-                            if(newPartwise.title == undefined) 
-                                newPartwise.title = workChild.textContent;
-                            else
-                                newPartwise.subtitle = workChild.textContent;
-                            break;
-                    }
-                }
-                break;
-
-            case "identification":
-                //Iterate thry the identification children
-                for(var j = 0; j < currChild.children.length; j++) {
-                    var identChild = currChild.children[j];
-
-                    switch(identChild.nodeName) {
-                        case "creator":
-                            var creatorAttr = getNodeAttributes(identChild);
-                            if(creatorAttr.type != undefined)
-                                newPartwise[creatorAttr.type] = identChild.textContent;     
-
-                            break;
-                    }
-                }
-                break;
-
-            case "part":
-                //Get the parts of the score
-                var partsColl = parseScorePart(currChild);
-
-                //Push all the parts to the new partwise parts array
-                for(var j = 0; j < partsColl.length; j++)
-                    newPartwise.parts.push(partsColl[j]);
-
-                break;
-        }
-
+        nodeAttributtes[currAttr.nodeName] = currAttr.nodeValue;
     }
 
-    return newPartwise;
+    return nodeAttributtes;
 }
+function getNoteDen(type) {
+    var currDenominator = null;
 
-function parseScorePart(scorePart) {
+    switch(type) {
+        case "whole":
+            currDenominator = 1;
+            break;
 
-    var partsCollection = [];
+        case "half":
+            currDenominator = 2;
+            break;
 
-    //if(scorePart.id != undefined)
-        //newPart.id = scorePart.id;
+        case "quarter":
+            currDenominator = 4;
+            break;
 
-    //Iterate thru scorePart childs
-    for(var i = 0; i < scorePart.children.length; i++) {
-        var currChild = scorePart.children[i];
+        case "eighth":
+            currDenominator = 8;
+            break;
 
-        switch(currChild.nodeName) {
-            case "measure":
-                var measuresCollection = parseScoreMeasure(currChild); 
+        case "16th":
+            currDenominator = 16;
+            break;
 
-                for(var j = 0; j < measuresCollection.length; j++) {
-                    //create the part object if doesn't exists
-                    if(partsCollection[j] == undefined)
-                        partsCollection[j] = { measures: [] }
+        case "32nd":
+            currDenominator = 32;
+            break;
 
-                    partsCollection[j].measures.push(measuresCollection[j]);    
+        case "64th":
+            currDenominator = 64;
+            break;
 
-                }
+        case "128th":
+            currDenominator = 128;
+            break;
 
+        default:
+            if(type == undefined) {
+                currDenominator = 1;
+            } else {
+                console.log("Denominator not implemented: ");
+                console.log(type);
+                //throw "Denominator not implemented: " + measures[i].note[j]; 
+            }                                               
+    }
+
+    return currDenominator;
+}
+function parseBar(scoreBar) {
+
+    var barObj = {}
+
+    var scoreBarAttr = getNodeAttributes(scoreBar);
+
+    if(scoreBarAttr.location == undefined)
+        return null;
+
+    switch(scoreBarAttr.location) {
+        case "right":
+            barObj.place = "end";
+            break;
+
+        case "left":
+            barObj.place = "start";
+            break;
+    }
+
+    for(var i = 0; i < scoreBar.children.length; i++) {
+        var scoreBarChild = scoreBar.children[i];
+
+        switch(scoreBarChild.nodeName) {
+
+            case "repeat": //Repeat bars have priority, so we dont check if the bar name has already been set
+                var repeatAttr = getNodeAttributes(scoreBarChild);
+
+                if(repeatAttr.direction == undefined)
+                    break;
+
+                barObj.name = repeatAttr.direction;
+                break;
+
+            case "bar-style":
+                if(barObj.name == undefined)    
+                    barObj.name = scoreBarChild.textContent;
                 break;
         }
     }
 
-    return partsCollection
+    return barObj;
+}
+
+//Function to get the clef object based on its music xml clef tag
+function parseClef(scoreClef) {
+
+    //If it got less than 2 children, means invalid clef, return null
+    if(scoreClef.children.length < 2)
+        return null;
+
+    var clefObj = {}
+
+    //Iterate thry clefs child
+    for(var i = 0; i < scoreClef.children.length; i++) {
+        var clefChild = scoreClef.children[i];
+
+        switch(clefChild.nodeName) {
+            case "sign":
+                clefObj.sign = clefChild.textContent;
+                break;
+
+            case "line":
+                clefObj.line = clefChild.textContent;
+                break;
+        }
+    }
+
+    //If some of the members are not defined, return null
+    if(clefObj.sign == undefined || clefObj.line == undefined)
+        return null;
+
+    return clefObj.sign + clefObj.line;
+}
+
+//Function to get the key sig object based on its music xml key tag
+function parseKeySig(scoreKey) {
+    //If it got less than 2 children, means invalid key, return null
+    if(scoreKey.children.length < 1)
+        return null;
+
+    var keySigValue = null;
+
+    //Iterate thry key childs
+    for(var i = 0; i < scoreKey.children.length; i++) {
+        var keyChild = scoreKey.children[i];
+
+        switch(keyChild.nodeName) {
+            case "fifths":
+                keySigValue = parseInt(keyChild.textContent);
+                break;
+        }
+    }
+
+    //if the key sig value is not valid, return null, other wise, return itself
+    if(isNaN(keySigValue))
+        return null;
+
+    return keySigValue;
 }
 
 function parseScoreMeasure(scoreMeasure) {
@@ -278,8 +325,6 @@ function parseScoreMeasure(scoreMeasure) {
 
     return measuresCollection;
 }
-
-
 function parseScoreNote(scoreNote) {
     
     var noteObj = { partInd: 0 }    //note object to store note information with the part index of the note
@@ -366,97 +411,100 @@ function parseScoreNote(scoreNote) {
 
     return noteObj;
 }
+function parseScorePart(scorePart) {
 
-function getNoteDen(type) {
-    var currDenominator = null;
+    var partsCollection = [];
 
-    switch(type) {
-        case "whole":
-            currDenominator = 1;
-            break;
+    //if(scorePart.id != undefined)
+        //newPart.id = scorePart.id;
 
-        case "half":
-            currDenominator = 2;
-            break;
+    //Iterate thru scorePart childs
+    for(var i = 0; i < scorePart.children.length; i++) {
+        var currChild = scorePart.children[i];
 
-        case "quarter":
-            currDenominator = 4;
-            break;
+        switch(currChild.nodeName) {
+            case "measure":
+                var measuresCollection = parseScoreMeasure(currChild); 
 
-        case "eighth":
-            currDenominator = 8;
-            break;
+                for(var j = 0; j < measuresCollection.length; j++) {
+                    //create the part object if doesn't exists
+                    if(partsCollection[j] == undefined)
+                        partsCollection[j] = { measures: [] }
 
-        case "16th":
-            currDenominator = 16;
-            break;
+                    partsCollection[j].measures.push(measuresCollection[j]);    
 
-        case "32nd":
-            currDenominator = 32;
-            break;
+                }
 
-        case "64th":
-            currDenominator = 64;
-            break;
-
-        case "128th":
-            currDenominator = 128;
-            break;
-
-        default:
-            if(type == undefined) {
-                currDenominator = 1;
-            } else {
-                console.log("Denominator not implemented: ");
-                console.log(type);
-                //throw "Denominator not implemented: " + measures[i].note[j]; 
-            }                                               
-    }
-
-    return currDenominator;
-}
-
-function parseBar(scoreBar) {
-
-    var barObj = {}
-
-    var scoreBarAttr = getNodeAttributes(scoreBar);
-
-    if(scoreBarAttr.location == undefined)
-        return null;
-
-    switch(scoreBarAttr.location) {
-        case "right":
-            barObj.place = "end";
-            break;
-
-        case "left":
-            barObj.place = "start";
-            break;
-    }
-
-    for(var i = 0; i < scoreBar.children.length; i++) {
-        var scoreBarChild = scoreBar.children[i];
-
-        switch(scoreBarChild.nodeName) {
-
-            case "repeat": //Repeat bars have priority, so we dont check if the bar name has already been set
-                var repeatAttr = getNodeAttributes(scoreBarChild);
-
-                if(repeatAttr.direction == undefined)
-                    break;
-
-                barObj.name = repeatAttr.direction;
-                break;
-
-            case "bar-style":
-                if(barObj.name == undefined)    
-                    barObj.name = scoreBarChild.textContent;
                 break;
         }
     }
 
-    return barObj;
+    return partsCollection
+}
+function parseScorePartwise(scorePartwise) {
+
+    var newPartwise = { parts: [] };
+
+    //Iterate thru scorePartwise childs
+    for(var i = 0; i < scorePartwise.children.length; i++) {
+        var currChild = scorePartwise.children[i];
+        
+        switch(currChild.nodeName) {
+
+            case "movement-title":
+                //If the title has already been set, put the setted as subtitle
+                if(newPartwise.title != undefined)
+                    newPartwise.subtitle = newPartwise.textContent; 
+                
+                newPartwise.title = currChild.textContent;
+                break;
+
+            case "work":
+                //iterate thru the work children
+                for(var j = 0; j < currChild.children.length; j++) {
+                    var workChild = currChild.children[j];
+
+                    switch(workChild.nodeName) {
+                        case "work-title":
+                            if(newPartwise.title == undefined) 
+                                newPartwise.title = workChild.textContent;
+                            else
+                                newPartwise.subtitle = workChild.textContent;
+                            break;
+                    }
+                }
+                break;
+
+            case "identification":
+                //Iterate thry the identification children
+                for(var j = 0; j < currChild.children.length; j++) {
+                    var identChild = currChild.children[j];
+
+                    switch(identChild.nodeName) {
+                        case "creator":
+                            var creatorAttr = getNodeAttributes(identChild);
+                            if(creatorAttr.type != undefined)
+                                newPartwise[creatorAttr.type] = identChild.textContent;     
+
+                            break;
+                    }
+                }
+                break;
+
+            case "part":
+                //Get the parts of the score
+                var partsColl = parseScorePart(currChild);
+
+                //Push all the parts to the new partwise parts array
+                for(var j = 0; j < partsColl.length; j++)
+                    newPartwise.parts.push(partsColl[j]);
+
+                break;
+        }
+
+    }
+
+    return newPartwise;
 }
 
 function parseTempo(scoreTempo) {
@@ -515,8 +563,6 @@ function parseTempo(scoreTempo) {
 
     return tempoObj;
 }
-
-
 //Function to get the time sig object based on its music xml key tag
 function parseTimeSig(scoreTime) {
     
@@ -557,79 +603,34 @@ function parseTimeSig(scoreTime) {
     return timeSigObj.beats + "," + timeSigObj.beatType; 
 
 }
+//Function to parse XML strings to xml dom
+function parseXmlDom(xmlString) {
+    var xmlDom = null;
 
-//Function to get the key sig object based on its music xml key tag
-function parseKeySig(scoreKey) {
-    //If it got less than 2 children, means invalid key, return null
-    if(scoreKey.children.length < 1)
-        return null;
+    if (window.DOMParser) {
 
-    var keySigValue = null;
-
-    //Iterate thry key childs
-    for(var i = 0; i < scoreKey.children.length; i++) {
-        var keyChild = scoreKey.children[i];
-
-        switch(keyChild.nodeName) {
-            case "fifths":
-                keySigValue = parseInt(keyChild.textContent);
-                break;
+        try { 
+            xmlDom = (new DOMParser()).parseFromString(xmlString, "text/xml"); 
+        } catch (e) { 
+            xmlDom = null; 
         }
-    }
 
-    //if the key sig value is not valid, return null, other wise, return itself
-    if(isNaN(keySigValue))
-        return null;
+    } else if (window.ActiveXObject) {
 
-    return keySigValue;
-}
-
-//Function to get the clef object based on its music xml clef tag
-function parseClef(scoreClef) {
-
-    //If it got less than 2 children, means invalid clef, return null
-    if(scoreClef.children.length < 2)
-        return null;
-
-    var clefObj = {}
-
-    //Iterate thry clefs child
-    for(var i = 0; i < scoreClef.children.length; i++) {
-        var clefChild = scoreClef.children[i];
-
-        switch(clefChild.nodeName) {
-            case "sign":
-                clefObj.sign = clefChild.textContent;
-                break;
-
-            case "line":
-                clefObj.line = clefChild.textContent;
-                break;
+        try {
+            xmlDom = new ActiveXObject('Microsoft.XMLDOM');
+            xmlDom.async = false;
+            if (!xmlDom.loadXML(xmlString)) // parse error ..
+                xmlDom = null;
+                //window.alert(xmlDom.parseError.reason + xmlDom.parseError.srcText);
+        } catch (e) { 
+            xmlDom = null; 
         }
-    }
 
-    //If some of the members are not defined, return null
-    if(clefObj.sign == undefined || clefObj.line == undefined)
-        return null;
+    } else {
+        xmlDom = null;
+        //console.error("Cannot parse xml string!");
+    }        
 
-    return clefObj.sign + clefObj.line;
-}
-
-
-function getNodeAttributes(targetNode) {
-    if(targetNode.attributes == undefined)
-        return {};
-
-    if(targetNode.attributes.length == 0)
-        return {};
-
-    var nodeAttributtes = {}
-
-    for(var i = 0; i < targetNode.attributes.length; i++) {
-        var currAttr = targetNode.attributes[i];
-
-        nodeAttributtes[currAttr.nodeName] = currAttr.nodeValue;
-    }
-
-    return nodeAttributtes;
+    return xmlDom;
 }

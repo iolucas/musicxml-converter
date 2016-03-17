@@ -24,5 +24,11 @@
   "bugs": {
     "url": "https://github.com/lucasolivier/musicxml-converter/issues"
   },
-  "homepage": "https://github.com/lucasolivier/musicxml-converter#readme"
+  "homepage": "https://github.com/lucasolivier/musicxml-converter#readme",
+  "dependencies": {
+    "grunt": "^0.4.5"
+  },
+  "devDependencies": {
+    "grunt-contrib-concat": "^1.0.0"
+  }
 }
