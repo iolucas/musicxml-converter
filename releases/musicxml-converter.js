@@ -17,6 +17,8 @@ MusicXmlConverter.toJson = function (xmlFile) {
         //if the current child is a score partwise
         if(currChild.nodeName == "score-partwise")
             return parseScorePartwise(currChild);   //get it
+
+        //In the future add score-timewise
     }
 
     throw "Parse Error: Invalid MusicXML File.";
@@ -193,6 +195,13 @@ function parseScoreMeasure(scoreMeasure) {
     function createMeasure() {
         return { chords: [] , chordPointer: -1, endBar: "light" } 
     }
+
+    //keep working here
+    //modify this to parse every node that may appear on measure
+    //and put them into an array called members
+
+
+
 
     var measuresCollection = [],
         measuresMetadata = {}
@@ -418,8 +427,25 @@ function parseScorePart(scorePart) {
     //if(scorePart.id != undefined)
         //newPart.id = scorePart.id;
 
+
+    ForeachChild(scorePart, {
+        'measure': function(currChild) {
+            var measuresCollection = parseScoreMeasure(currChild); 
+
+            for(var j = 0; j < measuresCollection.length; j++) {
+                //create the part object if doesn't exists
+                if(partsCollection[j] == undefined)
+                    partsCollection[j] = { measures: [] }
+
+                partsCollection[j].measures.push(measuresCollection[j]);    
+
+            }
+        }
+    });
+
+
     //Iterate thru scorePart childs
-    for(var i = 0; i < scorePart.children.length; i++) {
+    /*for(var i = 0; i < scorePart.children.length; i++) {
         var currChild = scorePart.children[i];
 
         switch(currChild.nodeName) {
@@ -437,7 +463,7 @@ function parseScorePart(scorePart) {
 
                 break;
         }
-    }
+    }*/
 
     return partsCollection
 }
@@ -445,8 +471,60 @@ function parseScorePartwise(scorePartwise) {
 
     var newPartwise = { parts: [] };
 
+    ForeachChild(scorePartwise, {
+
+        'movement-title': function(currChild) {
+            //If the title has already been set, put the setted as subtitle
+            if(newPartwise.title != undefined)
+                newPartwise.subtitle = newPartwise.textContent; 
+            
+            newPartwise.title = currChild.textContent;
+        },
+
+        'work': function(currChild) {
+            //iterate thru the work children
+
+            ForeachChild(currChild, {
+
+                'work-title': function(workChild) {
+                    if(newPartwise.title == undefined) 
+                        newPartwise.title = workChild.textContent;
+                    else
+                        newPartwise.subtitle = workChild.textContent;
+                }
+
+            });
+        },
+
+        'identification': function(currChild) {
+
+            ForeachChild(currChild, {
+
+                'creator':function(identChild) {
+                    var creatorAttr = getNodeAttributes(identChild);
+                    if(creatorAttr.type != undefined)
+                        newPartwise[creatorAttr.type] = identChild.textContent;
+                }
+
+            });
+        },
+
+        'part': function(currChild) {
+            //Get the parts of the score
+            var partsColl = parseScorePart(currChild);
+
+            //Push all the parts to the new partwise parts array
+            for(var j = 0; j < partsColl.length; j++)
+                newPartwise.parts.push(partsColl[j]);
+        }
+
+    });
+
+
+
+
     //Iterate thru scorePartwise childs
-    for(var i = 0; i < scorePartwise.children.length; i++) {
+    /*for(var i = 0; i < scorePartwise.children.length; i++) {
         var currChild = scorePartwise.children[i];
         
         switch(currChild.nodeName) {
@@ -502,7 +580,7 @@ function parseScorePartwise(scorePartwise) {
                 break;
         }
 
-    }
+    }*/
 
     return newPartwise;
 }
@@ -633,4 +711,17 @@ function parseXmlDom(xmlString) {
     }        
 
     return xmlDom;
+}
+//Utils functions to help the library
+
+function ForeachChild(targetElem, childrenTasks) {
+
+	//Iterate thry all the element children
+	for (var i = 0; i < targetElem.children.length; i++) {
+		var child = targetElem.children[i];
+
+		//If the current child got its name on the childrenTask, execute the task passing the child ref
+		if(childrenTasks[child.nodeName])
+			childrenTasks[child.nodeName].call(targetElem, child);	
+	}
 }

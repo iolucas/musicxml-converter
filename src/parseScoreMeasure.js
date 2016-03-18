@@ -4,6 +4,13 @@ function parseScoreMeasure(scoreMeasure) {
         return { chords: [] , chordPointer: -1, endBar: "light" } 
     }
 
+    keep working here
+    modify this to parse every node that may appear on measure
+    and put them into an array called members
+
+
+
+
     var measuresCollection = [],
         measuresMetadata = {}
 

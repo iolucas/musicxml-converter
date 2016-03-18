@@ -17,6 +17,8 @@ MusicXmlConverter.toJson = function (xmlFile) {
         //if the current child is a score partwise
         if(currChild.nodeName == "score-partwise")
             return parseScorePartwise(currChild);   //get it
+
+        //In the future add score-timewise
     }
 
     throw "Parse Error: Invalid MusicXML File.";
