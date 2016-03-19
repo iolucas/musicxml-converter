@@ -1,5 +1,32 @@
-//Function to get the clef object based on its music xml clef tag
-function parseClef(scoreClef) {
+//Function to parse the <clef> node
+function parseClef(clefNode) {
+
+    var clefObject = {}
+
+    ForeachChild(clefNode, {
+
+        'sign': function(signNode) {
+            clefObject.sign = signNode.textContent;
+        },
+
+        'line': function(lineNode) {
+            clefObject.line = lineNode.textContent;
+        },
+
+        'clef-octave-change': function(cocNode) {
+            clefObject['clef-octave-change'] = cocNode.textContent;
+        }
+    });
+
+    return clefObject;
+}
+
+
+
+
+
+
+function parseClef2(scoreClef) {
 
     //If it got less than 2 children, means invalid clef, return null
     if(scoreClef.children.length < 2)

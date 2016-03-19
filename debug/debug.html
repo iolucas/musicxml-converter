@@ -29,7 +29,7 @@
                 ReadFile(file, function(fileContent){
                     document.getElementById("resultXml").innerText = fileContent; 
                     var mJson = MusicXmlConverter.toJson(fileContent);
-                    //console.log(mJson);
+                    console.log(mJson);
                     document.getElementById("resultJson").innerText = JSON.stringify(mJson, null, "_"); 
                     
                 });

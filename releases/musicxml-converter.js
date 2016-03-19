@@ -25,70 +25,35 @@ MusicXmlConverter.toJson = function (xmlFile) {
 
 }
 
-function getNodeAttributes(targetNode) {
-    if(targetNode.attributes == undefined)
-        return {};
+//Function to parse <attributes> node
 
-    if(targetNode.attributes.length == 0)
-        return {};
+function parseAttributes(attrNode) {
 
-    var nodeAttributtes = {}
+	var attrObject = {
+		name: 'attributes'
+	}
 
-    for(var i = 0; i < targetNode.attributes.length; i++) {
-        var currAttr = targetNode.attributes[i];
+	ForeachChild(attrNode, {
 
-        nodeAttributtes[currAttr.nodeName] = currAttr.nodeValue;
-    }
+		'divisions': function(divisionsNode) {
+			attrObject.divisions = divisionsNode.textContent;
+		},
 
-    return nodeAttributtes;
-}
-function getNoteDen(type) {
-    var currDenominator = null;
+		'key': function(keyNode) {
+			attrObject.key = parseKey(keyNode);
+		},
 
-    switch(type) {
-        case "whole":
-            currDenominator = 1;
-            break;
+		'time': function(timeNode) {
+			attrObject.time = parseTime(timeNode);
+		},
 
-        case "half":
-            currDenominator = 2;
-            break;
+		'clef': function(clefNode) {
+			attrObject.clef = parseClef(clefNode);
+		}
 
-        case "quarter":
-            currDenominator = 4;
-            break;
+	});
 
-        case "eighth":
-            currDenominator = 8;
-            break;
-
-        case "16th":
-            currDenominator = 16;
-            break;
-
-        case "32nd":
-            currDenominator = 32;
-            break;
-
-        case "64th":
-            currDenominator = 64;
-            break;
-
-        case "128th":
-            currDenominator = 128;
-            break;
-
-        default:
-            if(type == undefined) {
-                currDenominator = 1;
-            } else {
-                console.log("Denominator not implemented: ");
-                console.log(type);
-                //throw "Denominator not implemented: " + measures[i].note[j]; 
-            }                                               
-    }
-
-    return currDenominator;
+	return attrObject;
 }
 function parseBar(scoreBar) {
 
@@ -133,8 +98,35 @@ function parseBar(scoreBar) {
     return barObj;
 }
 
-//Function to get the clef object based on its music xml clef tag
-function parseClef(scoreClef) {
+//Function to parse the <clef> node
+function parseClef(clefNode) {
+
+    var clefObject = {}
+
+    ForeachChild(clefNode, {
+
+        'sign': function(signNode) {
+            clefObject.sign = signNode.textContent;
+        },
+
+        'line': function(lineNode) {
+            clefObject.line = lineNode.textContent;
+        },
+
+        'clef-octave-change': function(cocNode) {
+            clefObject['clef-octave-change'] = cocNode.textContent;
+        }
+    });
+
+    return clefObject;
+}
+
+
+
+
+
+
+function parseClef2(scoreClef) {
 
     //If it got less than 2 children, means invalid clef, return null
     if(scoreClef.children.length < 2)
@@ -164,6 +156,20 @@ function parseClef(scoreClef) {
     return clefObj.sign + clefObj.line;
 }
 
+//Function to parse <key> node
+
+function parseKey(keyNode) {
+
+	var keyValue;
+
+	ForeachChild(keyNode, {
+		'fifths': function(fifthsNode) {
+			keyValue = fifthsNode.textContent;	
+		}
+	});
+
+	return keyValue;
+}
 //Function to get the key sig object based on its music xml key tag
 function parseKeySig(scoreKey) {
     //If it got less than 2 children, means invalid key, return null
@@ -190,13 +196,224 @@ function parseKeySig(scoreKey) {
     return keySigValue;
 }
 
+//function to parse <measure> nodes
+
+function parseMeasure(measureNode) {
+
+	var measureObject = { members: [] }
+
+	var measureNodeAttr = getNodeAttributes(measureNode);
+
+
+	//Required Attributes
+
+	if(measureNodeAttr.number == undefined)
+		return null;
+
+	measureObject.number = measureNodeAttr.number;
+
+	//Optional attributes
+
+	if(measureNodeAttr.implicit != undefined)
+		measureObject.implicit = measureNodeAttr.implicit;
+
+	if(measureNodeAttr['non-controlling'] != undefined)
+		measureObject['non-controlling'] = measureNodeAttr['non-controlling'];
+
+	if(measureNodeAttr.width != undefined)
+		measureObject.width = measureNodeAttr.width;
+
+
+
+
+	//Iterate thru children
+	ForeachChild(measureNode, {
+
+		'note': function(noteNode) {
+			var noteObject = parseNote(noteNode);
+
+			var lastMember = measureObject.members.length == 0 ? null : 
+				measureObject.members[measureObject.members.length - 1];
+
+			//Verify object is a rest, or is not a chord or there is no element before this
+			if(noteObject.isRest || 
+				!noteObject.isChord || 
+				lastMember == null ||
+				lastMember.name != 'note') {
+
+				//create new note object with keys element
+				measureObject.members.push({
+					name: 'note',
+					keys: [noteObject]
+				});
+
+			} else {
+
+				lastMember.keys.push(noteObject);
+
+			}
+		},
+
+		'backup': function() {
+
+		},
+
+		'forward': function() {
+
+		},
+
+		'direction': function() {
+
+		},
+
+		'attributes': function(attrNode) {
+			var attrObject = parseAttributes(attrNode);
+			measureObject.members.push(attrObject);
+		},
+
+	  	'harmony': function() {
+
+		},
+
+	  	'figured-bass': function() {
+
+		},
+
+	  	'print': function() {
+
+		},
+
+	  	'sound': function() {
+
+		},
+
+	  	'barline': function() {
+
+		},
+
+	  	'grouping': function() {
+
+		},
+
+	  	'link': function() {
+
+		},
+
+	  	'bookmark': function() {
+
+		}
+
+	});
+
+	return measureObject;
+}
+//Function to parse <note> objects
+
+function parseNote(noteNode) {
+
+	var noteArr = [];
+
+	var noteObject = { 
+		//name: 'note',
+		isRest: false,
+		isChord: false
+	}
+
+	ForeachChild(noteNode, {
+
+		'pitch': function(pitchNode) {
+			noteObject.pitch = parsePitch(pitchNode);
+		},
+
+		'duration': function(durationNode) {
+			noteObject.duration = durationNode.textContent;
+		},
+
+		'voice': function(voiceNode) {
+			noteObject.voice = voiceNode.textContent;
+		},
+
+		'rest': function() {
+			noteObject.isRest = true;
+		},
+
+		'chord': function() {
+			noteObject.isChord = true;
+		},
+
+		'type': function(typeNode) {
+			noteObject.type = typeNode.textContent;
+		},
+
+		'stem': function(stemNode) {
+			noteObject.stem = stemNode.textContent;
+		}
+
+	});
+
+
+	return noteObject;	
+}
+//Function to parse <part> nodes
+
+function parsePart(partNode) {
+
+	//Get part attributes
+	var partNodeAttr = getNodeAttributes(partNode);
+
+	//If there is no id (REQUIRED), return null
+	if(partNodeAttr.id == undefined)
+		return null;
+
+	var partObject = {
+		id: partNodeAttr.id,
+		measures: []
+	}
+
+	ForeachChild(partNode, {
+
+		'measure': function(measureNode) {
+			var measureObject = parseMeasure(measureNode);
+
+			//If it is a valid measure object
+			if(measureObject != null)
+				partObject.measures.push(measureObject);
+		}
+
+	});
+
+	return partObject;
+}
+//Function to parse <pitch> node
+function parsePitch(pitchNode) {
+
+	var pitchObject = {}
+
+	ForeachChild(pitchNode, {
+
+		'step': function(stepNode) {
+			pitchObject.step = stepNode.textContent;
+		},
+
+		'octave': function(octaveNode) {
+			pitchObject.octave = octaveNode.textContent;
+		},
+
+		'alter': function(alterNode) {
+			pitchObject.alter = octaveNode.textContent;
+		}
+
+	});
+
+	return pitchObject;
+}
 function parseScoreMeasure(scoreMeasure) {
 
     function createMeasure() {
         return { chords: [] , chordPointer: -1, endBar: "light" } 
     }
 
-    //keep working here
+
     //modify this to parse every node that may appear on measure
     //and put them into an array called members
 
@@ -420,56 +637,14 @@ function parseScoreNote(scoreNote) {
 
     return noteObj;
 }
-function parseScorePart(scorePart) {
-
-    var partsCollection = [];
-
-    //if(scorePart.id != undefined)
-        //newPart.id = scorePart.id;
-
-
-    ForeachChild(scorePart, {
-        'measure': function(currChild) {
-            var measuresCollection = parseScoreMeasure(currChild); 
-
-            for(var j = 0; j < measuresCollection.length; j++) {
-                //create the part object if doesn't exists
-                if(partsCollection[j] == undefined)
-                    partsCollection[j] = { measures: [] }
-
-                partsCollection[j].measures.push(measuresCollection[j]);    
-
-            }
-        }
-    });
-
-
-    //Iterate thru scorePart childs
-    /*for(var i = 0; i < scorePart.children.length; i++) {
-        var currChild = scorePart.children[i];
-
-        switch(currChild.nodeName) {
-            case "measure":
-                var measuresCollection = parseScoreMeasure(currChild); 
-
-                for(var j = 0; j < measuresCollection.length; j++) {
-                    //create the part object if doesn't exists
-                    if(partsCollection[j] == undefined)
-                        partsCollection[j] = { measures: [] }
-
-                    partsCollection[j].measures.push(measuresCollection[j]);    
-
-                }
-
-                break;
-        }
-    }*/
-
-    return partsCollection
-}
 function parseScorePartwise(scorePartwise) {
 
     var newPartwise = { parts: [] };
+
+    var scorePartwiseAttr = getNodeAttributes(scorePartwise);
+
+    if(scorePartwiseAttr.version != undefined)
+        newPartwise.version = scorePartwiseAttr.version;   
 
     ForeachChild(scorePartwise, {
 
@@ -511,7 +686,9 @@ function parseScorePartwise(scorePartwise) {
 
         'part': function(currChild) {
             //Get the parts of the score
-            var partsColl = parseScorePart(currChild);
+            //var partsColl = parseScorePart(currChild);
+
+            var partsColl = [parsePart(currChild)];
 
             //Push all the parts to the new partwise parts array
             for(var j = 0; j < partsColl.length; j++)
@@ -641,6 +818,31 @@ function parseTempo(scoreTempo) {
 
     return tempoObj;
 }
+//Function to parse <time> node
+
+function parseTime(timeNode) {
+
+	var timeObject = {}
+
+	var timeAttr = getNodeAttributes(timeNode);
+
+	if(timeAttr['time-symbol'] != undefined)
+		timeObject['time-symbol'] = timeAttr['time-symbol'];
+
+	ForeachChild(timeNode, {
+
+		'beats': function(beatsNode) {
+			timeObject.beats = beatsNode.textContent;	
+		},
+
+		'beat-type': function(beatTypeNode) {
+			timeObject['beat-type'] = beatTypeNode.textContent;
+		}
+
+	});
+
+	return timeObject;
+}
 //Function to get the time sig object based on its music xml key tag
 function parseTimeSig(scoreTime) {
     
@@ -724,4 +926,72 @@ function ForeachChild(targetElem, childrenTasks) {
 		if(childrenTasks[child.nodeName])
 			childrenTasks[child.nodeName].call(targetElem, child);	
 	}
+}
+
+
+function getNodeAttributes(targetNode) {
+    if(targetNode.attributes == undefined)
+        return {};
+
+    if(targetNode.attributes.length == 0)
+        return {};
+
+    var nodeAttributtes = {}
+
+    for(var i = 0; i < targetNode.attributes.length; i++) {
+        var currAttr = targetNode.attributes[i];
+
+        nodeAttributtes[currAttr.nodeName] = currAttr.nodeValue;
+    }
+
+    return nodeAttributtes;
+}
+
+function getNoteDen(type) {
+    var currDenominator = null;
+
+    switch(type) {
+        case "whole":
+            currDenominator = 1;
+            break;
+
+        case "half":
+            currDenominator = 2;
+            break;
+
+        case "quarter":
+            currDenominator = 4;
+            break;
+
+        case "eighth":
+            currDenominator = 8;
+            break;
+
+        case "16th":
+            currDenominator = 16;
+            break;
+
+        case "32nd":
+            currDenominator = 32;
+            break;
+
+        case "64th":
+            currDenominator = 64;
+            break;
+
+        case "128th":
+            currDenominator = 128;
+            break;
+
+        default:
+            if(type == undefined) {
+                currDenominator = 1;
+            } else {
+                console.log("Denominator not implemented: ");
+                console.log(type);
+                //throw "Denominator not implemented: " + measures[i].note[j]; 
+            }                                               
+    }
+
+    return currDenominator;
 }

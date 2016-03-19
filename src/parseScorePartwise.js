@@ -2,6 +2,11 @@ function parseScorePartwise(scorePartwise) {
 
     var newPartwise = { parts: [] };
 
+    var scorePartwiseAttr = getNodeAttributes(scorePartwise);
+
+    if(scorePartwiseAttr.version != undefined)
+        newPartwise.version = scorePartwiseAttr.version;   
+
     ForeachChild(scorePartwise, {
 
         'movement-title': function(currChild) {
@@ -42,7 +47,9 @@ function parseScorePartwise(scorePartwise) {
 
         'part': function(currChild) {
             //Get the parts of the score
-            var partsColl = parseScorePart(currChild);
+            //var partsColl = parseScorePart(currChild);
+
+            var partsColl = [parsePart(currChild)];
 
             //Push all the parts to the new partwise parts array
             for(var j = 0; j < partsColl.length; j++)
