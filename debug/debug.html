@@ -17,10 +17,15 @@
         </style>
     </head>
     <body>
+        <canvas width='1000' height='500'></canvas>
+        <br>
         <input type="file" id="files"/><br><br><br>
         <div id="resultXml">Result XML</div>
         <div id="resultJson">Result JSON</div>
+        <script src="http://code.jquery.com/jquery-1.12.0.min.js"></script>
         <script src="../releases/musicxml-converter.js"></script>
+        <script src="vexflow-min.js"></script>
+        <script src="render.js"></script>
         <script>
         
             document.getElementById("files").addEventListener("change", function(evt) {
@@ -29,9 +34,8 @@
                 ReadFile(file, function(fileContent){
                     document.getElementById("resultXml").innerText = fileContent; 
                     var mJson = MusicXmlConverter.toJson(fileContent);
-                    console.log(mJson);
                     document.getElementById("resultJson").innerText = JSON.stringify(mJson, null, "_"); 
-                    
+                    renderScore(mJson);
                 });
                 
             });
