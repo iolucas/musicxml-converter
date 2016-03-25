@@ -14,7 +14,7 @@ function parsePitch(pitchNode) {
 		},
 
 		'alter': function(alterNode) {
-			pitchObject.alter = octaveNode.textContent;
+			pitchObject.alter = alterNode.textContent;
 		}
 
 	});

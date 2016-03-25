@@ -1,6 +1,8 @@
 function renderScore(mJson) {
 
 	console.log('Fix bug in case time signature product odd durations values');
+	console.log('Fix bug that stem do not extend to the middle of the score lines');
+	console.log('create proper project to store this');
 	console.log(mJson);
 
 
