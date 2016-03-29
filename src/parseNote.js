@@ -38,6 +38,18 @@ function parseNote(noteNode) {
 
 		'stem': function(stemNode) {
 			noteObject.stem = stemNode.textContent;
+		},
+
+		'accidental': function(accidentalNode) {
+
+			var accAttributes = getNodeAttributes(accidentalNode);
+
+			noteObject.accidental = { 
+				type: accidentalNode.textContent
+			}
+
+			if(accAttributes['parentheses'] ==  'yes')
+				noteObject.accidental.cautionary = true;
 		}
 
 	});

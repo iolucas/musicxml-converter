@@ -46,7 +46,8 @@ function parseMeasure(measureNode) {
 				//create new note object with keys element
 				measureObject.members.push({
 					name: 'note',
-					keys: [noteObject]
+					keys: [noteObject],
+					duration: noteObject.type
 				});
 
 			} else {

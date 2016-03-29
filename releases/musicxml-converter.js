@@ -244,7 +244,8 @@ function parseMeasure(measureNode) {
 				//create new note object with keys element
 				measureObject.members.push({
 					name: 'note',
-					keys: [noteObject]
+					keys: [noteObject],
+					duration: noteObject.type
 				});
 
 			} else {
@@ -347,6 +348,18 @@ function parseNote(noteNode) {
 
 		'stem': function(stemNode) {
 			noteObject.stem = stemNode.textContent;
+		},
+
+		'accidental': function(accidentalNode) {
+
+			var accAttributes = getNodeAttributes(accidentalNode);
+
+			noteObject.accidental = { 
+				type: accidentalNode.textContent
+			}
+
+			if(accAttributes['parentheses'] ==  'yes')
+				noteObject.accidental.cautionary = true;
 		}
 
 	});
